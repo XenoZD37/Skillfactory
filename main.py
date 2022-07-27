@@ -1,54 +1,45 @@
-def arr_sort(arr):
-    if (len(arr) == 1):
-            return arr
+import telebot
+from config import currency_map, TOKEN
+from extentions import APIException, CryptoConverter
+
+bot = telebot.TeleBot(TOKEN)
+
+@bot.message_handler(commands=['start', 'help'])
+def handle_help(message: telebot.types.Message):
+    text = 'Чтобы начать работу введите комманду боту в следующем формате:\n<имя валюты> \
+<в какую валюту перевести> \
+<количество переводимой валюты>\n\
+Увидеть список всех доступных валют - /values'
+    bot.reply_to(message, text)
+
+
+@bot.message_handler(commands=['values'])
+def values(message: telebot.types.Message):
+    text = 'Доступные валюты:'
+    for currency in currency_map.keys():
+        text = '\n'.join((text, currency, ))
+    bot.reply_to(message, text)
+
+
+@bot.message_handler(content_types=['text', ])
+def convert(message: telebot.types.Message):
+    try:
+        values = message.text.split(' ')
+        if len(values) != 3:
+            raise APIException('Неверное количество параметров. ')
+
+        quote, base, amount = values
+        total_base = CryptoConverter.get_price(quote, base, amount)
+        if total_base is None:
+            raise APIException('В данный момент не существует курса для данных валют')
+    except APIException as e:
+        bot.reply_to(message, f'Ошибка ввода\n{e}')
+    except Exception as e:
+        bot.reply_to(message, f'Не удалось обработать команду\n{e}')
     else:
-        middle = len(arr) // 2
-        arr_left = arr_sort(arr[:middle])
-        arr_right = arr_sort(arr[middle:])
+        text = f'Цена {amount} {quote} в {base} - {total_base}'
+        bot.send_message(message.chat.id, text)
 
-        return merge(arr_left, arr_right)
 
-def merge(left, right):
-    result = []
-    i, j = 0, 0
+bot.polling()
 
-    while i < len(left) and j < len(right):
-        if left[i] < right[j]:
-            result.append(left[i])
-            i += 1
-        else:
-            result.append(right[j])
-            j += 1
-
-    while i < len(left):
-        result.append(left[i])
-        i += 1
-    while j < len(right):
-        result.append(right[j])
-        j += 1
-    return result
-
-def bin_search(arr, check_num, i_low, i_high):
-    if (i_high >= i_low):
-        middle = i_low + (i_high - i_low) // 2
-    
-    if (check_num > arr[middle]):
-        if middle + 1 >= len(arr) or check_num <= arr[middle + 1]:
-            return middle
-    if (check_num <= arr[middle]):
-        return bin_search(arr, check_num, i_low, middle)
-    else:
-        return bin_search(arr, check_num, middle, i_high)
-
-    
-num_arr = list(map(int, input("Введите последовательность чисел через пробел:\n").split(' ')))
-
-check_num = int(input("Введите число:\n"))
-num_arr = arr_sort(num_arr)
-if (check_num <= num_arr[0]):
-    print("Заданное число меньше или равно наименьшему элементу в списке")
-else: 
-    if (check_num > num_arr[-1]):
-        print("Заданное число больше чем наибольший элемент в списке")
-    else:
-        print(bin_search(num_arr, check_num, 0, len(num_arr)))
